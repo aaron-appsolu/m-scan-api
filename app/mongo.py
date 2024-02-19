@@ -10,5 +10,5 @@ gamma = client.m_scan.tetra_1_gamma
 via = client.m_scan.via
 alfa = client.m_scan.tetra_2_alfa
 beta = client.m_scan.tetra_3_beta
-route_types = client.m_traject.routeTypes
+routeTypes = client.m_traject.routeTypes
 routes = client.m_traject.routes

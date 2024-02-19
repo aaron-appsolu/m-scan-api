@@ -22,7 +22,7 @@ def edge(idx: int, t: str):
     return f'-[v{idx}:{t}]->'
 
 
-for route_type in route_types.find():
+for route_type in route_types.find({'active': True}):
     operations = []
     route: List[str] = route_type.get('route')
     if not route or not len(route) % 2:
@@ -46,22 +46,27 @@ for route_type in route_types.find():
 
         for r in res:
             geometry = None
+            props = {
+                'type': r.get('type')
+            }
             if isinstance(r, NeoNode):
                 geometry = Point(r.get('point'))
-
+                # props.update()
             if isinstance(r, NeoEdge):
                 total_duration += r.get('duration') or 0
                 total_distance += r.get('distance') or 0
-                geometry = LineString(decode(r.get('polyline'), geojson=True))
+                polyline = decode(r.get('polyline'), geojson=True)
+                geometry = LineString(polyline)
+                props.update({
+                    'duration': r.get('duration'),
+                    'distance': r.get('distance'),
+                    'type': r.get('type'),
+                    'is_direct': len(polyline) == 2
+                })
 
             assert geometry is not None
+            assert props is not None
 
-            # props = {k: v for k, v in r.items()}
-            props = {
-                'duration': r.get('duration'),
-                'distance': r.get('distance'),
-                'type': r.get('type')
-            }
             feature = Feature(geometry=geometry, properties=props)
             features.append(feature)
 
