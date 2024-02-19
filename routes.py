@@ -9,7 +9,7 @@ from geojson import Feature, LineString, Point, FeatureCollection
 from neo4j.graph import Node as NeoNode, Relationship as NeoEdge
 from pymongo import UpdateOne
 
-from app.mongo import route_types, routes
+from app.mongo import routeTypes, routes
 from app.neo import execute_query
 from helpers import chunks
 
@@ -22,7 +22,7 @@ def edge(idx: int, t: str):
     return f'-[v{idx}:{t}]->'
 
 
-for route_type in route_types.find({'active': True}):
+for route_type in routeTypes.find({'active': True}):
     operations = []
     route: List[str] = route_type.get('route')
     if not route or not len(route) % 2:
