@@ -303,7 +303,7 @@ def show_indexes():
 
 # delete_all()
 # create_ppl_nodes()
-create_vpl_nodes()
+# create_vpl_nodes()
 # create_via_nodes()
 
 # create_gamma_edges()

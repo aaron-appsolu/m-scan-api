@@ -29,15 +29,17 @@ async def get_vpl():
 
 
 @app.get("/routes")
-async def get_vpl(vpl_uides: str, route_types: str):
+async def get_vpl(vpl_uides: str):
     vpl_uides = vpl_uides.split(',')
-    route_types = route_types.split(',')
-    r = routes.find({
-        'vpl_uide': {'$in': vpl_uides},
-        'route_type': {'$in': route_types}
-    }, {'_id': 0})
-
+    r = routes.find({'vpl_uide': {'$in': vpl_uides}}, {'_id': 0, 'features': 0})
     return list(r)
+
+
+@app.get("/routes/features")
+async def get_vpl(vpl_uide: str, ppl_uide: str, route_type: str):
+    r = routes.find_one({'vpl_uide': vpl_uide, 'ppl_uide': ppl_uide, 'route_type': route_type},
+                        {'_id': 0, 'features': 1})
+    return r.get('features') or []
 
 
 @app.get("/route_types")
