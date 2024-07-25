@@ -8,12 +8,12 @@ def get_settings():
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env")
+
     PROD: bool
     SECRET: str
     MONGODB: str
     NEO4J: str
-    NEO4JAUTH: str
+    GRAPHAUTH: str
     MEMGRAPH: str
-    MEMGRAPHAUTH: str
 
-    model_config = SettingsConfigDict(env_file=".env")

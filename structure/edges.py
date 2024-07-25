@@ -1,6 +1,6 @@
-from typing import List, Set
+from typing import Set
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 # Base
@@ -11,29 +11,40 @@ class Edge(BaseModel):
     type_b: str
     uide_a: str
     uide_b: str
+
+    model_config = ConfigDict(extra='forbid')
+
+
+class RouteEdge(Edge):
     polyline: str
     distance: float
     duration: float
 
 
 # Intermediate edges
-class Gamma(Edge):
+class Gamma(RouteEdge):
     type_a: str = 'PPL'
     type_b: str = 'VPL'
 
 
-class Alfa(Edge):
+class Alfa(RouteEdge):
     type_a: str = 'PPL'
     type_b: str = 'VIA'
 
 
-class Beta(Edge):
+class Beta(RouteEdge):
     type_a: str = 'VIA'
     type_b: str = 'VPL'
 
 
 # Edges
-class GammaWalk(Gamma):
+class PplVplOwnership(Edge):
+    type_a: str = 'VPL'
+    type_b: str = 'PPL'
+    type: str = 'OWNER'
+
+
+class GammaWalk(RouteEdge):
     type: str = 'WALK'
 
 

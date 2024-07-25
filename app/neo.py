@@ -4,7 +4,7 @@ from app.settings import get_settings
 settings = get_settings()
 
 URI = settings.NEO4J
-AUTH = tuple(settings.NEO4JAUTH.split('/'))
+AUTH = tuple(settings.GRAPHAUTH.split('/'))
 
 
 def verify():

@@ -7,6 +7,8 @@ from app.mongo import routeTypes, routes
 from app.neo import execute_query
 from fastapi.middleware.cors import CORSMiddleware
 
+from helpers import checksum
+
 origins = [
     "https://m-scan-v2.made4it.com",
     "http://localhost:4200"
@@ -26,6 +28,14 @@ app.add_middleware(
 async def get_vpl():
     result = execute_query('MATCH (vpl:VPL) RETURN vpl')
     return [{**d.get('vpl'), 'selected': False} for d in result]
+
+
+@app.get("/ppl")
+async def get_vpl(vpl_uides: str):
+    vpl_uides = vpl_uides.split(',')
+    result = execute_query('MATCH (vpl:VPL)-[:OWNER]->(ppl: PPL) WHERE vpl.uide IN $vpl_uides RETURN ppl', vpl_uides=vpl_uides)
+    r = [{**d.get('ppl'), 'selected': False} for d in result]
+    return r
 
 
 @app.get("/routes")

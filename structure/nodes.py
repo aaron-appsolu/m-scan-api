@@ -1,5 +1,5 @@
-from typing import List, Set
-from pydantic import BaseModel
+from typing import Set
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 # Base
@@ -8,6 +8,7 @@ class Node(BaseModel):
     lat: float
     lng: float
     uide: str
+    model_config = ConfigDict(extra='forbid')
 
 
 # Nodes
@@ -15,6 +16,16 @@ class PPL(Node):
     type: str = 'PPL'
     owner: str
     address: str
+    FTE: float
+    raw: float
+    wgh: float
+
+    @field_validator('FTE')
+    @classmethod
+    def must_be_between_0_1(cls, v: float) -> float:
+        if v > 1 or v < 0:
+            raise ValueError(f'{v} is not between 0 and 1.')
+        return v
 
 
 class VPL(Node):

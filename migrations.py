@@ -3,12 +3,12 @@ from typing import List
 from neo4j import Record
 from neo4j.graph import Relationship
 from geojson import LineString, FeatureCollection, Feature, dumps as geodumps
-from app.mongo import vpl, ppl, gamma, via, alfa, beta
 from app.neo import execute_query
+from app.mongo import vpl, ppl, gamma, via, alfa, beta
 from structure.nodes import PPL, VPL, VIA, nodes
 from structure.graph_types import create_edges, create_nodes
 from structure.edges import GammaWalk, GammaCar, GammaTransit, GammaBicycle, AlfaWalk, AlfaBicycle, AlfaTransit, \
-    AlfaCar, BetaBicycle, BetaTransit, BetaCar, BetaWalk, edges
+    AlfaCar, BetaBicycle, BetaTransit, BetaCar, BetaWalk, edges, PplVplOwnership
 
 from polyline import decode, encode
 
@@ -29,6 +29,9 @@ def create_ppl_nodes():
         'ppl_uide': 1,
         'pplLngLat': 1,
         'ppl_owner': 1,
+        'raw': '$ppl.raw',
+        'wgh': '$ppl.wgh',
+        'FTE': '$ppl_FTE',
         'formattedAddress': '$goc.formattedAddress'
     }
     ppls = [PPL(
@@ -36,6 +39,9 @@ def create_ppl_nodes():
         lng=d['pplLngLat']['coordinates'][0],
         lat=d['pplLngLat']['coordinates'][1],
         owner=d['ppl_owner'],
+        raw=d['raw'],
+        wgh=d['wgh'],
+        FTE=d['FTE'],
         address=d['formattedAddress']
     ) for d in ppl.find({'vpl_uide': {'$in': vpl_uides}}, proj)]
 
@@ -57,8 +63,21 @@ def create_vpl_nodes():
         lat=d['vplLngLat']['coordinates'][1],
         name=d['vpl_name']
     ) for d in vpl.find({'vpl_uide': {'$in': vpl_uides}}, proj)]
-    aaa = vpls[0].type
+
     create_nodes(nodes=vpls)
+
+
+def create_ppl_vpl_edges():
+    proj = {
+        '_id': 0,
+        'ppl_uide': 1,
+        'vpl_uide': 1
+    }
+    owners = [PplVplOwnership(uide_a=d['vpl_uide'],
+                              uide_b=d['ppl_uide']
+                              ) for d in ppl.find({'vpl_uide': {'$in': vpl_uides}}, proj)]
+
+    create_edges(edges=owners)
 
 
 def create_via_nodes():
@@ -258,7 +277,7 @@ def create_beta_edges():
 
 
 def create_gamma_car_route():
-    records: List[Record[Relationship]] = execute_query("MATCH (ppl:PPL)-[gammaCar:CAR]->(vpl:VPL) RETURN e LIMIT 100")
+    records: List[Record[Relationship]] = execute_query("MATCH (ppl:PPL)-[gammaCar:CAR]->(vpl:VPL) RETURN e")
     features = []
     for record in records:
         rel: Relationship = record['gammaCar']
@@ -300,15 +319,16 @@ def show_indexes():
 # create_node_indexes()
 # create_edge_indexes()
 # show_indexes()
-
+#
 # delete_all()
-# create_ppl_nodes()
+create_ppl_nodes()
 # create_vpl_nodes()
+create_ppl_vpl_edges()
 # create_via_nodes()
 
 # create_gamma_edges()
 # create_alfa_edges()
 # create_beta_edges()
-
+#
 # create_gamma_car_route()
 print('Done')
