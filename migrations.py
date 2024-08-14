@@ -4,20 +4,20 @@ from neo4j import Record
 from neo4j.graph import Relationship
 from geojson import LineString, FeatureCollection, Feature, dumps as geodumps
 from app.neo import execute_query
-from app.mongo import vpl, ppl, gamma, via, alfa, beta
-from structure.nodes import PPL, VPL, VIA, nodes
-from structure.graph_types import create_edges, create_nodes
+from app.mongo import vpl_old, ppl_old, gamma, via_old, alfa, beta, ppl
+from structure.nodes import PPL, VPL, VIA, NodeTypes, Node
+from structure.graph_types import create_edges, create_nodes_neo, create_nodes_mongo
 from structure.edges import GammaWalk, GammaCar, GammaTransit, GammaBicycle, AlfaWalk, AlfaBicycle, AlfaTransit, \
     AlfaCar, BetaBicycle, BetaTransit, BetaCar, BetaWalk, edges, PplVplOwnership
 
 from polyline import decode, encode
 
 vpl_query = {'vpl_acl': 'PMA'}
-vpl_uides = [d['vpl_uide'] for d in vpl.find(vpl_query, {'vpl_uide': 1})]
+vpl_uides = [d['vpl_uide'] for d in vpl_old.find(vpl_query, {'vpl_uide': 1})]
 
 
 def delete_all():
-    print('Delete all')
+    print('Delete all. Are you sure?')
     sleep(5)
     execute_query('MATCH ()-[e]->() DELETE e')
     execute_query('MATCH (n) DELETE n')
@@ -27,25 +27,39 @@ def create_ppl_nodes():
     proj = {
         '_id': 0,
         'ppl_uide': 1,
+        'vpl_uide': 1,
         'pplLngLat': 1,
         'ppl_owner': 1,
         'raw': '$ppl.raw',
         'wgh': '$ppl.wgh',
         'FTE': '$ppl_FTE',
+        'vvm': '$vvm.vvm_1_std',
         'formattedAddress': '$goc.formattedAddress'
     }
-    ppls = [PPL(
+
+    ppls = [d for d in ppl_old.find({'vpl_uide': {'$in': vpl_uides}}, proj)]
+    n = [Node(
+        type=NodeTypes.PPL,
         uide=d['ppl_uide'],
+        lng=d['pplLngLat']['coordinates'][0],
+        lat=d['pplLngLat']['coordinates'][1],
+    ) for d in ppls]
+
+    p = [PPL(
+        uide=d['ppl_uide'],
+        vpl_uide=d['vpl_uide'],
         lng=d['pplLngLat']['coordinates'][0],
         lat=d['pplLngLat']['coordinates'][1],
         owner=d['ppl_owner'],
         raw=d['raw'],
         wgh=d['wgh'],
         FTE=d['FTE'],
+        vvm=d['vvm'],
         address=d['formattedAddress']
-    ) for d in ppl.find({'vpl_uide': {'$in': vpl_uides}}, proj)]
+    ) for d in ppls]
 
-    create_nodes(nodes=ppls)
+    create_nodes_neo(nodes=n)
+    create_nodes_mongo(nodes=p, collection=ppl)
 
 
 def create_vpl_nodes():
@@ -62,9 +76,9 @@ def create_vpl_nodes():
         lng=d['vplLngLat']['coordinates'][0],
         lat=d['vplLngLat']['coordinates'][1],
         name=d['vpl_name']
-    ) for d in vpl.find({'vpl_uide': {'$in': vpl_uides}}, proj)]
+    ) for d in vpl_old.find({'vpl_uide': {'$in': vpl_uides}}, proj)]
 
-    create_nodes(nodes=vpls)
+    create_nodes_neo(nodes=vpls)
 
 
 def create_ppl_vpl_edges():
@@ -74,13 +88,13 @@ def create_ppl_vpl_edges():
         'vpl_uide': 1
     }
     owners = [PplVplOwnership(uide_a=d['vpl_uide'],
-                              uide_b=d['ppl_uide']
-                              ) for d in ppl.find({'vpl_uide': {'$in': vpl_uides}}, proj)]
+                              uide_b=d['ppl_uide']) for d in ppl_old.find({'vpl_uide': {'$in': vpl_uides}}, proj)]
 
     create_edges(edges=owners)
 
 
 def create_via_nodes():
+    t: NodeTypes = NodeTypes.VIA
     proj = {
         '_id': 0,
         'via_uide': 1,
@@ -98,9 +112,9 @@ def create_via_nodes():
         name=d['via_name'],
         via_type=d['via_type'],
         country=d['country'],
-    ) for d in via.find({'isVisible': True}, proj)]
+    ) for d in via_old.find({'isVisible': True}, proj)]
 
-    create_nodes(nodes=vias)
+    create_nodes_neo(nodes=vias)
 
 
 def create_gamma_edges():
@@ -276,24 +290,24 @@ def create_beta_edges():
     create_edges(edges=bicycles)
 
 
-def create_gamma_car_route():
-    records: List[Record[Relationship]] = execute_query("MATCH (ppl:PPL)-[gammaCar:CAR]->(vpl:VPL) RETURN e")
-    features = []
-    for record in records:
-        rel: Relationship = record['gammaCar']
-        feature = Feature(geometry=LineString(decode(rel['polyline'], geojson=True)),
-                          properties={
-                              'duration': rel['duration'],
-                              'distance': rel['distance']
-                          })
-
-        features.append(feature)
-
-    print(geodumps(FeatureCollection(features)))
+# def create_gamma_car_route():
+#     records: List[Record[Relationship]] = execute_query("MATCH (ppl:PPL)-[gammaCar:CAR]->(vpl:VPL) RETURN e")
+#     features = []
+#     for record in records:
+#         rel: Relationship = record['gammaCar']
+#         feature = Feature(geometry=LineString(decode(rel['polyline'], geojson=True)),
+#                           properties={
+#                               'duration': rel['duration'],
+#                               'distance': rel['distance']
+#                           })
+#
+#         features.append(feature)
+#
+#     print(geodumps(FeatureCollection(features)))
 
 
 def create_node_indexes():
-    for d in nodes:
+    for d in NodeTypes:
         qry = f"""
         CREATE CONSTRAINT {d}_uide_unique IF NOT EXISTS
         FOR (t:{d}) REQUIRE t.uide IS UNIQUE
@@ -316,19 +330,19 @@ def show_indexes():
             print(d)
 
 
-# create_node_indexes()
-# create_edge_indexes()
-# show_indexes()
-#
-# delete_all()
-create_ppl_nodes()
-# create_vpl_nodes()
-create_ppl_vpl_edges()
-# create_via_nodes()
+create_node_indexes()
+create_edge_indexes()
+show_indexes()
 
-# create_gamma_edges()
-# create_alfa_edges()
-# create_beta_edges()
-#
+delete_all()
+create_ppl_nodes()
+create_vpl_nodes()
+create_ppl_vpl_edges()
+create_via_nodes()
+
+create_gamma_edges()
+create_alfa_edges()
+create_beta_edges()
+
 # create_gamma_car_route()
 print('Done')

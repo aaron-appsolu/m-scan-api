@@ -1,13 +1,9 @@
-from hashlib import md5
-from typing import Annotated
-
-from fastapi import FastAPI, Query
-
-from app.mongo import routeTypes, routes
+from typing import List
+from fastapi import FastAPI
+from app.mongo import routeTypes, routes, ppl
 from app.neo import execute_query
 from fastapi.middleware.cors import CORSMiddleware
-
-from helpers import checksum
+from structure.nodes import PPL
 
 origins = [
     "https://m-scan-v2.made4it.com",
@@ -33,9 +29,36 @@ async def get_vpl():
 @app.get("/ppl")
 async def get_vpl(vpl_uides: str):
     vpl_uides = vpl_uides.split(',')
-    result = execute_query('MATCH (vpl:VPL)-[:OWNER]->(ppl: PPL) WHERE vpl.uide IN $vpl_uides RETURN ppl', vpl_uides=vpl_uides)
-    r = [{**d.get('ppl'), 'selected': False} for d in result]
-    return r
+    pipeline = [
+        {'$match': {'vpl_uide': {'$in': vpl_uides}}},
+        {
+            '$lookup': {
+                'from': 'routes',
+                'let': {'uide': '$uide'},
+                'pipeline': [
+                    {'$match': {'$expr': {'$eq': ['$ppl_uide', '$$uide']}}},
+                    {'$project': {
+                        'total_distance': 1,
+                        'total_duration': 1,
+                        'route_type': 1,
+                        '_id': 0
+                    }}
+                ],
+                'as': 'routes'
+            }
+        },
+        {'$project': {'_id': 0}}
+    ]
+
+    # res = ppl.find({'vpl_uide': {'$in': vpl_uides}}, {'_id': 0})
+    res = ppl.aggregate(pipeline)
+
+    return [{**d, 'selected': False} for d in res]
+
+
+@app.post("/ppl/update")
+async def get_vpl(changes: List[PPL]):
+    return None
 
 
 @app.get("/routes")

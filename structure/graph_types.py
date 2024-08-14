@@ -1,25 +1,26 @@
-from typing import List
+from typing import List, Any
+
+from pymongo import UpdateOne
+from pymongo.collection import Collection
+
 from app.neo import execute_query
 from helpers import chunks
 from structure.edges import Edge
-from structure.nodes import Node
+from structure.nodes import Node, NodeTypes
+from datetime import datetime
 
 chunk_size = 10_000
 
 
-
-
-
-def create_nodes(nodes: List[Node]):
+def create_nodes_neo(nodes: List[Node]):
     if len(nodes) == 0:
         return
-    n0 = nodes[0]
-    model_fields = n0.model_fields
-    r = ',\n'.join([f"n.{k} = d.{k}" for k in model_fields.keys()])
+    t = nodes[0].type
+
     qry = f"""
     UNWIND $nodes AS d
     WITH d AS d, point({{latitude: d.lat, longitude: d.lng}}) AS pt
-    MERGE (n:{n0.type} {{uide: d.uide}})
+    MERGE (n:{t} {{uide: d.uide}})
     ON CREATE SET
         n = d,
         n.created = timestamp(),
@@ -33,11 +34,25 @@ def create_nodes(nodes: List[Node]):
 
     chunked_list = chunks(nodes, chunk_size)
     for idx, sub_nodes in enumerate(chunked_list):
-        print(f'(:{n0.type}): Creating {idx * chunk_size + len(sub_nodes)}/{len(nodes)} nodes...')
+        print(f'(:{t}): Creating {idx * chunk_size + len(sub_nodes)}/{len(nodes)} nodes...')
         execute_query(qry, nodes=[d.dict() for d in sub_nodes])
 
     # print(f'Creating {len(nodes)} nodes of type {n0.type}...')
     # execute_query(qry, nodes=[d.dict() for d in nodes])
+
+
+def create_nodes_mongo(nodes: List[Node], collection: Collection):
+    timestamp = datetime.now()
+
+    operations = [UpdateOne({'uide': d.uide}, {
+        '$setOnInsert': {'created': timestamp},
+        '$set': {**d.dict(), 'lastEdited': timestamp}
+    }, upsert=True) for d in nodes]
+
+    chunked_list = chunks(operations, chunk_size)
+    for idx, sub_operations in enumerate(chunked_list):
+        print(f'Creating {idx * chunk_size + len(sub_operations)}/{len(nodes)} nodes...')
+        collection.bulk_write(sub_operations, ordered=False)
 
 
 def create_edges(edges: List[Edge]):

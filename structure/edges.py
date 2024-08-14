@@ -2,6 +2,8 @@ from typing import Set
 
 from pydantic import BaseModel, ConfigDict
 
+from structure.nodes import NodeTypes
+
 
 # Base
 
@@ -23,24 +25,24 @@ class RouteEdge(Edge):
 
 # Intermediate edges
 class Gamma(RouteEdge):
-    type_a: str = 'PPL'
-    type_b: str = 'VPL'
+    type_a: NodeTypes = NodeTypes.PPL
+    type_b: NodeTypes = NodeTypes.VPL
 
 
 class Alfa(RouteEdge):
-    type_a: str = 'PPL'
-    type_b: str = 'VIA'
+    type_a: NodeTypes = NodeTypes.PPL
+    type_b: NodeTypes = NodeTypes.VIA
 
 
 class Beta(RouteEdge):
-    type_a: str = 'VIA'
-    type_b: str = 'VPL'
+    type_a: NodeTypes = NodeTypes.VIA
+    type_b: NodeTypes = NodeTypes.VPL
 
 
 # Edges
 class PplVplOwnership(Edge):
-    type_a: str = 'VPL'
-    type_b: str = 'PPL'
+    type_a: NodeTypes = NodeTypes.VPL
+    type_b: NodeTypes = NodeTypes.PPL
     type: str = 'OWNER'
 
 

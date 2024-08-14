@@ -1,10 +1,17 @@
+from enum import Enum
 from typing import Set
 from pydantic import BaseModel, ConfigDict, field_validator
 
 
+class NodeTypes(str, Enum):
+    PPL = 'PPL'
+    VPL = 'VPL'
+    VIA = 'VIA'
+
+
 # Base
 class Node(BaseModel):
-    type: str
+    type: NodeTypes
     lat: float
     lng: float
     uide: str
@@ -13,12 +20,16 @@ class Node(BaseModel):
 
 # Nodes
 class PPL(Node):
-    type: str = 'PPL'
+    type: NodeTypes = NodeTypes.PPL
+    vpl_uide: str
     owner: str
     address: str
     FTE: float
+    vvm: str
     raw: float
     wgh: float
+
+    model_config = ConfigDict(extra="ignore")
 
     @field_validator('FTE')
     @classmethod
@@ -29,19 +40,12 @@ class PPL(Node):
 
 
 class VPL(Node):
-    type: str = 'VPL'
+    type: NodeTypes = NodeTypes.VPL
     name: str
 
 
 class VIA(Node):
-    type: str = 'VIA'
+    type: NodeTypes = NodeTypes.VIA
     name: str
     country: str
     via_type: str
-
-
-nodes: Set[str] = {
-    PPL.model_construct().type,
-    VPL.model_construct().type,
-    VIA.model_construct().type
-}

@@ -5,8 +5,7 @@ from os import getenv
 
 if getenv("PROD") is None:
     load_dotenv()
-load_dotenv()
-print('Pord', getenv("PROD"))
+
 
 @lru_cache
 def get_settings():
@@ -21,4 +20,3 @@ class Settings(BaseSettings):
     MONGODB: str
     NEO4J: str
     GRAPHAUTH: str
-    MEMGRAPH: str
