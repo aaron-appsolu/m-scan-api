@@ -1,12 +1,12 @@
-from typing import List, Any
+from typing import List
 
 from pymongo import UpdateOne
 from pymongo.collection import Collection
 
 from app.neo import execute_query
 from helpers import chunks
-from structure.edges import Edge
-from structure.nodes import Node, NodeTypes
+from app.structure.edges import Edge
+from app.structure.nodes import Node
 from datetime import datetime
 
 chunk_size = 10_000

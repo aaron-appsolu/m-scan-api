@@ -1,16 +1,12 @@
 from time import sleep
-from typing import List
-from neo4j import Record
-from neo4j.graph import Relationship
-from geojson import LineString, FeatureCollection, Feature, dumps as geodumps
 from app.neo import execute_query
 from app.mongo import vpl_old, ppl_old, gamma, via_old, alfa, beta, ppl
-from structure.nodes import PPL, VPL, VIA, NodeTypes, Node
-from structure.graph_types import create_edges, create_nodes_neo, create_nodes_mongo
-from structure.edges import GammaWalk, GammaCar, GammaTransit, GammaBicycle, AlfaWalk, AlfaBicycle, AlfaTransit, \
+from app.structure.nodes import PPL, VPL, VIA, NodeTypes, Node
+from app.structure.graph_types import create_edges, create_nodes_neo, create_nodes_mongo
+from app.structure.edges import GammaWalk, GammaCar, GammaTransit, GammaBicycle, AlfaWalk, AlfaBicycle, AlfaTransit, \
     AlfaCar, BetaBicycle, BetaTransit, BetaCar, BetaWalk, edges, PplVplOwnership
 
-from polyline import decode, encode
+from polyline import encode
 
 vpl_query = {'vpl_acl': 'PMA'}
 vpl_uides = [d['vpl_uide'] for d in vpl_old.find(vpl_query, {'vpl_uide': 1})]

@@ -1,11 +1,10 @@
-import json
 from datetime import datetime
 from typing import List
 
 from neo4j import Record
-from polyline import decode, encode
+from polyline import decode
 
-from geojson import Feature, LineString, Point, FeatureCollection
+from geojson import Feature, LineString, Point
 from neo4j.graph import Node as NeoNode, Relationship as NeoEdge
 from pymongo import UpdateOne
 

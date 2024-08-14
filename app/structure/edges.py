@@ -2,7 +2,7 @@ from typing import Set
 
 from pydantic import BaseModel, ConfigDict
 
-from structure.nodes import NodeTypes
+from app.structure.nodes import NodeTypes
 
 
 # Base

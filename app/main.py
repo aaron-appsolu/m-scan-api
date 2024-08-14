@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from app.mongo import routeTypes, routes, ppl
 from app.neo import execute_query
 from fastapi.middleware.cors import CORSMiddleware
-from structure.nodes import PPL
+from app.structure.nodes import PPL
 
 origins = [
     "https://m-scan-v2.made4it.com",
