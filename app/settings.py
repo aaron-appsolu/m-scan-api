@@ -5,6 +5,7 @@ from os import getenv
 
 if getenv("PROD") is None:
     load_dotenv()
+load_dotenv()
 
 
 @lru_cache
