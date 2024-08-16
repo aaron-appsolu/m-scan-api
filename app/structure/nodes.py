@@ -2,6 +2,8 @@ from enum import Enum
 from typing import Set
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from app.structure.types import StandardisedFormat
+
 
 class NodeTypes(str, Enum):
     PPL = 'PPL'
@@ -25,7 +27,7 @@ class PPL(Node):
     owner: str
     address: str
     FTE: float
-    vvm: str
+    vvm: StandardisedFormat
     raw: float
     wgh: float
 

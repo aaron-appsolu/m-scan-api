@@ -1,12 +1,17 @@
 from time import sleep
+
+from pymongo import UpdateOne
+from bson import ObjectId
 from app.neo import execute_query
-from app.mongo import vpl_old, ppl_old, gamma, via_old, alfa, beta, ppl
+from app.mongo import vpl_old, ppl_old, gamma, via_old, alfa, beta, ppl, routes, routeTypes
 from app.structure.nodes import PPL, VPL, VIA, NodeTypes, Node
 from app.structure.graph_types import create_edges, create_nodes_neo, create_nodes_mongo
 from app.structure.edges import GammaWalk, GammaCar, GammaTransit, GammaBicycle, AlfaWalk, AlfaBicycle, AlfaTransit, \
     AlfaCar, BetaBicycle, BetaTransit, BetaCar, BetaWalk, edges, PplVplOwnership
 
 from polyline import encode
+
+from helpers import chunks
 
 vpl_query = {'vpl_acl': 'PMA'}
 vpl_uides = [d['vpl_uide'] for d in vpl_old.find(vpl_query, {'vpl_uide': 1})]
@@ -29,7 +34,7 @@ def create_ppl_nodes():
         'raw': '$ppl.raw',
         'wgh': '$ppl.wgh',
         'FTE': '$ppl_FTE',
-        'vvm': '$vvm.vvm_1_std',
+        'vvm': {'std': '$vvm.vvm_1_std', 'rpt': '$vvm.vvm_1_rpt', 'obs': '$vvm.vvm_1_obs'},
         'formattedAddress': '$goc.formattedAddress'
     }
 
@@ -326,19 +331,19 @@ def show_indexes():
             print(d)
 
 
-create_node_indexes()
-create_edge_indexes()
-show_indexes()
+# create_node_indexes()
+# create_edge_indexes()
+# show_indexes()
 
-delete_all()
-create_ppl_nodes()
-create_vpl_nodes()
-create_ppl_vpl_edges()
-create_via_nodes()
+# delete_all()
+# create_ppl_nodes()
+# create_vpl_nodes()
+# create_ppl_vpl_edges()
+# create_via_nodes()
 
-create_gamma_edges()
-create_alfa_edges()
-create_beta_edges()
+# create_gamma_edges()
+# create_alfa_edges()
+# create_beta_edges()
 
 # create_gamma_car_route()
 print('Done')

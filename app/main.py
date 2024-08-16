@@ -23,7 +23,7 @@ app.add_middleware(
 @app.get("/vpl")
 async def get_vpl():
     result = execute_query('MATCH (vpl:VPL) RETURN vpl')
-    return [{**d.get('vpl'), 'selected': False} for d in result]
+    return [{**d.get('vpl')} for d in result]
 
 
 @app.get("/ppl")
@@ -40,7 +40,7 @@ async def get_vpl(vpl_uides: str):
                     {'$project': {
                         'total_distance': 1,
                         'total_duration': 1,
-                        'route_type': 1,
+                        'route_id': 1,
                         '_id': 0
                     }}
                 ],
@@ -50,29 +50,42 @@ async def get_vpl(vpl_uides: str):
         {'$project': {'_id': 0}}
     ]
 
-    # res = ppl.find({'vpl_uide': {'$in': vpl_uides}}, {'_id': 0})
-    res = ppl.aggregate(pipeline)
-
-    return [{**d, 'selected': False} for d in res]
+    # ppl.find({'vpl_uide': {'$in': vpl_uides}}, {'_id': 0})
+    return [d for d in ppl.aggregate(pipeline)]
 
 
 @app.post("/ppl/update")
 async def get_vpl(changes: List[PPL]):
+    raise NotImplementedError
     return None
 
 
-@app.get("/routes")
-async def get_vpl(vpl_uides: str):
-    vpl_uides = vpl_uides.split(',')
-    r = routes.find({'vpl_uide': {'$in': vpl_uides}}, {'_id': 0, 'features': 0})
-    return list(r)
+def flat_feat(res) -> List:
+    return [d2 for r in res for d2 in r.get('features')]
 
 
-@app.get("/routes/features")
-async def get_vpl(vpl_uide: str, ppl_uide: str, route_type: str):
-    r = routes.find_one({'vpl_uide': vpl_uide, 'ppl_uide': ppl_uide, 'route_type': route_type},
-                        {'_id': 0, 'features': 1})
-    return r.get('features') or []
+@app.get("/routes/features/ppl/{ppl_uide}")
+async def get_vpl(ppl_uide: str):
+    return flat_feat(routes.find({'ppl_uide': ppl_uide},
+                                 {'_id': 0, 'features': 1}))
+
+
+@app.get("/routes/features/ppl/{ppl_uide}/{route_type}")
+async def get_vpl(ppl_uide: str, route_type: str):
+    return flat_feat(routes.find({'ppl_uide': ppl_uide, 'route_type': route_type},
+                                 {'_id': 0, 'features': 1}))
+
+
+@app.get("/routes/features/vpl/{vpl_uide}")
+async def get_vpl(vpl_uide: str):
+    return flat_feat(routes.find({'vpl_uide': vpl_uide},
+                                 {'_id': 0, 'features': 1}))
+
+
+@app.get("/routes/features/vpl/{vpl_uide}/{route_type}")
+async def get_vpl(vpl_uide: str, route_type: str):
+    return flat_feat(routes.find({'vpl_uide': vpl_uide, 'route_type': route_type},
+                                 {'_id': 0, 'features': 1}))
 
 
 @app.get("/route_types")
