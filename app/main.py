@@ -78,14 +78,14 @@ async def get_vpl(ppl_uide: str, route_type: str):
 
 @app.get("/routes/features/vpl/{vpl_uide}")
 async def get_vpl(vpl_uide: str):
-    return flat_feat(routes.find({'vpl_uide': vpl_uide},
-                                 {'_id': 0, 'features': 1}))
+    return list(routes.find({'vpl_uide': vpl_uide},
+                            {'_id': 0, 'features_zlib': 1, 'route_type': 1, 'vpl_uide': 1, 'ppl_uide': 1}))
 
 
 @app.get("/routes/features/vpl/{vpl_uide}/{route_type}")
 async def get_vpl(vpl_uide: str, route_type: str):
-    return flat_feat(routes.find({'vpl_uide': vpl_uide, 'route_type': route_type},
-                                 {'_id': 0, 'features': 1}))
+    return list(routes.find({'vpl_uide': vpl_uide, 'route_type': route_type},
+                            {'_id': 0, 'features_zlib': 1, 'route_type': 1, 'vpl_uide': 1, 'ppl_uide': 1}))
 
 
 @app.get("/route_types")

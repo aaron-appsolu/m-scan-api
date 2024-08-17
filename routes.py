@@ -1,10 +1,12 @@
+import base64
+import json
+import zlib
 from datetime import datetime
 from typing import List
 
 from bson import ObjectId
 from neo4j import Record
-from polyline import decode
-
+from app.helpers.google import decode
 from geojson import Feature, LineString, Point
 from neo4j.graph import Node as NeoNode, Relationship as NeoEdge
 from pymongo import UpdateOne
@@ -49,30 +51,30 @@ for ppl_idx, p in enumerate(ppls):
             vpl_uide = res.values()[-1].get('uide')
 
             for r in res:
-                geometry = None
-                props = {
-                    'type': r.get('type')
-                }
                 if isinstance(r, NeoNode):
-                    geometry = Point(r.get('point'))
-                    # props.update()
+                    features.append({
+                        'props': {
+                            'type': r.get('type')
+                        },
+                        'encoded': r.get('point'),
+                        'type': 'P'
+                    })
                 if isinstance(r, NeoEdge):
                     total_duration += r.get('duration') or 0
                     total_distance += r.get('distance') or 0
-                    polyline = decode(r.get('polyline'), geojson=True)
-                    geometry = LineString(polyline)
-                    props.update({
-                        'duration': r.get('duration'),
-                        'distance': r.get('distance'),
-                        'type': r.get('type'),
-                        'is_direct': len(polyline) == 2
+
+                    features.append({
+                        'props': {
+                            'duration': r.get('duration'),
+                            'distance': r.get('distance'),
+                            'type': r.get('type')
+                        },
+                        'encoded': r.get('polyline'),
+                        'type': 'L'
                     })
 
-                assert geometry is not None
-                assert props is not None
-
-                feature = Feature(geometry=geometry, properties=props)
-                features.append(feature)
+            compressed_bytes: bytes = zlib.compress(json.dumps(features).encode('utf-8'))
+            base64_encoded_data = base64.b64encode(compressed_bytes).decode('utf-8')
 
             upsert = {
                 'ppl_uide': ppl_uide,
@@ -81,7 +83,7 @@ for ppl_idx, p in enumerate(ppls):
             }
             doc = {
                 '$set': {
-                    'features': features,
+                    'features_zlib': base64_encoded_data,
                     'route_id': route_type.get('id'),
                     'lastEdited': datetime.now(),
                     'total_duration': total_duration,
