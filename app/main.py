@@ -67,25 +67,25 @@ def flat_feat(res) -> List:
 
 
 @app.get("/routes/features/ppl/{ppl_uide}")
-async def get_vpl(ppl_uide: str):
+async def get_ppl_all_routes(ppl_uide: str):
     return flat_feat(routes.find({'ppl_uide': ppl_uide},
                                  {'_id': 0, 'features': 1}))
 
 
 @app.get("/routes/features/ppl/{ppl_uide}/{route_type}")
-async def get_vpl(ppl_uide: str, route_type: str):
+async def get_ppl_route(ppl_uide: str, route_type: str):
     return flat_feat(routes.find({'ppl_uide': ppl_uide, 'route_type': route_type},
                                  {'_id': 0, 'features': 1}))
 
 
 @app.get("/routes/features/vpl/{vpl_uide}")
-async def get_vpl(vpl_uide: str):
+async def get_vpl_all_routes(vpl_uide: str):
     return list(routes.find({'vpl_uide': vpl_uide},
                             {'_id': 0, 'features_zlib': 1, 'route_type': 1, 'vpl_uide': 1, 'ppl_uide': 1}))
 
 
 @app.get("/routes/features/vpl/{vpl_uide}/{route_type}")
-async def get_vpl(vpl_uide: str, route_type: str):
+async def get_vpl_route(vpl_uide: str, route_type: str):
     return list(routes.find({'vpl_uide': vpl_uide, 'route_type': route_type},
                             {'_id': 0, 'features_zlib': 1, 'route_type': 1, 'vpl_uide': 1, 'ppl_uide': 1}))
 

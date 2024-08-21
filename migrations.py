@@ -1,17 +1,12 @@
 from time import sleep
-
-from pymongo import UpdateOne
-from bson import ObjectId
 from app.neo import execute_query
-from app.mongo import vpl_old, ppl_old, gamma, via_old, alfa, beta, ppl, routes, routeTypes
+from app.mongo import vpl_old, ppl_old, gamma, via_old, alfa, beta, ppl
 from app.structure.nodes import PPL, VPL, VIA, NodeTypes, Node
 from app.structure.graph_types import create_edges, create_nodes_neo, create_nodes_mongo
 from app.structure.edges import GammaWalk, GammaCar, GammaTransit, GammaBicycle, AlfaWalk, AlfaBicycle, AlfaTransit, \
     AlfaCar, BetaBicycle, BetaTransit, BetaCar, BetaWalk, edges, PplVplOwnership
 
 from polyline import encode
-
-from helpers import chunks
 
 vpl_query = {'vpl_acl': 'PMA'}
 vpl_uides = [d['vpl_uide'] for d in vpl_old.find(vpl_query, {'vpl_uide': 1})]

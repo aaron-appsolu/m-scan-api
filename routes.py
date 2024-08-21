@@ -1,6 +1,7 @@
 import base64
 import json
 import zlib
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import List
 
@@ -13,6 +14,7 @@ from pymongo import UpdateOne
 
 from app.mongo import routeTypes, routes, ppl
 from app.neo import execute_query
+from app.structure.nodes import PPL
 
 
 def node(idx: int, t: str):
@@ -24,9 +26,10 @@ def edge(idx: int, t: str):
 
 
 rt = [d for d in routeTypes.find({'active': True})]
-ppls = [d for d in ppl.find({}, {'uide': 1, 'vpl_uide': 1})]
+ppls = [d for d in ppl.find({'_id': {'$gte': ObjectId('66bd0bddf73c0fca6ae43491')}}, {'uide': 1, 'vpl_uide': 1})]
 
-for ppl_idx, p in enumerate(ppls):
+
+def handle_ppl(ppl_idx: int, p: PPL):
     ppl_uide = p.get('uide')
     vpl_uide = p.get('vpl_uide')
     operations = []
@@ -101,3 +104,19 @@ for ppl_idx, p in enumerate(ppls):
         print(f"{ppl_idx + 1}/{len(ppls)}: routes added")
     else:
         print(f"{ppl_idx + 1}/{len(ppls)}: no routes")
+
+
+#
+# for ppl_idx, p in enumerate(ppls):
+#     handle_ppl(ppl_idx, p)
+
+
+with ThreadPoolExecutor(max_workers=75) as executor:
+    # Submit tasks to the thread pool
+    futures = [executor.submit(handle_ppl, ppl_idx, p) for ppl_idx, p in enumerate(ppls)]
+
+    # Process the results as they complete
+    for future in futures:
+        result = future.result()
+
+print('Done')
