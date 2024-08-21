@@ -41,7 +41,7 @@ async def get_vpl(vpl_uides: str):
                         'total_distance': 1,
                         'total_duration': 1,
                         'route_type': 1,
-                        'route_id': 1,
+                        # 'route_id': 1,
                         'features_zlib': 1,
                         '_id': 0
                     }}
@@ -51,7 +51,7 @@ async def get_vpl(vpl_uides: str):
         },
         {'$project': {'_id': 0}}
     ]
-
+    print(pipeline)
     # ppl.find({'vpl_uide': {'$in': vpl_uides}}, {'_id': 0})
     return [d for d in ppl.aggregate(pipeline)]
 
@@ -92,4 +92,4 @@ async def get_vpl_route(vpl_uide: str, route_type: str):
 
 @app.get("/route_types")
 async def get_route_types():
-    return [{**d, 'selected': False} for d in routeTypes.find({}, {'_id': 0})]
+    return [d for d in routeTypes.find({}, {'_id': 0})]

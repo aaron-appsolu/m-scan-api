@@ -117,6 +117,6 @@ with ThreadPoolExecutor(max_workers=75) as executor:
 
     # Process the results as they complete
     for future in futures:
-        result = future.result()
+        future_res = future.result()
 
 print('Done')
