@@ -40,7 +40,9 @@ async def get_vpl(vpl_uides: str):
                     {'$project': {
                         'total_distance': 1,
                         'total_duration': 1,
+                        'route_type': 1,
                         'route_id': 1,
+                        'features_zlib': 1,
                         '_id': 0
                     }}
                 ],
