@@ -35,10 +35,7 @@ def create_nodes_neo(nodes: List[Node]):
     chunked_list = chunks(nodes, chunk_size)
     for idx, sub_nodes in enumerate(chunked_list):
         print(f'(:{t}): Creating {idx * chunk_size + len(sub_nodes)}/{len(nodes)} nodes...')
-        execute_query(qry, nodes=[d.dict() for d in sub_nodes])
-
-    # print(f'Creating {len(nodes)} nodes of type {n0.type}...')
-    # execute_query(qry, nodes=[d.dict() for d in nodes])
+        execute_query(qry, nodes=[d.model_dump() for d in sub_nodes])
 
 
 def create_nodes_mongo(nodes: List[Node], collection: Collection):
@@ -46,7 +43,7 @@ def create_nodes_mongo(nodes: List[Node], collection: Collection):
 
     operations = [UpdateOne({'uide': d.uide}, {
         '$setOnInsert': {'created': timestamp},
-        '$set': {**d.dict(), 'lastEdited': timestamp}
+        '$set': {**d.model_dump(), 'lastEdited': timestamp}
     }, upsert=True) for d in nodes]
 
     chunked_list = chunks(operations, chunk_size)
@@ -79,7 +76,4 @@ def create_edges(edges: List[Edge]):
     for idx, sub_edges in enumerate(chunked_list):
         print(f'(:{e0.type_a})-[:{e0.type}]->({e0.type_b}): '
               f'Creating {idx * chunk_size + len(sub_edges)}/{len(edges)} edges...')
-        execute_query(qry, edges=[d.dict() for d in sub_edges])
-
-    # print(f'Creating {len(edges)} edges of type {e0.type}...')
-    # execute_query(qry, edges=[d.dict() for d in edges])
+        execute_query(qry, edges=[d.model_dump() for d in sub_edges])

@@ -1,5 +1,5 @@
 import json
-from hashlib import md5
+from hashlib import md5 as md5_hashlib
 from neo4j.spatial import Point
 
 
@@ -33,4 +33,8 @@ def serialize(obj):
 
 
 def checksum(obj):
-    return md5(serialize(obj).encode()).hexdigest()
+    return md5(serialize(obj))
+
+
+def md5(s):
+    return md5_hashlib(s.encode()).hexdigest()

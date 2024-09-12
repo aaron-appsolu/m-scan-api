@@ -1,13 +1,21 @@
 from enum import Enum
-from pydantic import BaseModel, ConfigDict, field_validator
+from random import random
+
+from pydantic import BaseModel, ConfigDict, field_validator, computed_field
 
 from app.structure.types import StandardisedFormat
+
+
+def jitter(n: float):
+    rand = (.5 - random()) * 0.0005
+    return n + rand
 
 
 class NodeTypes(str, Enum):
     PPL = 'PPL'
     VPL = 'VPL'
     VIA = 'VIA'
+    MEETINGPOINT = 'MEETINGPOINT'
 
 
 # Base
@@ -16,6 +24,17 @@ class Node(BaseModel):
     lat: float
     lng: float
     uide: str
+
+    @computed_field
+    @property
+    def lat_jitter(self) -> float:
+        return jitter(self.lat)
+
+    @computed_field
+    @property
+    def lng_jitter(self) -> float:
+        return jitter(self.lng)
+
     model_config = ConfigDict(extra='forbid')
 
 
@@ -27,6 +46,7 @@ class PPL(Node):
     address: str
     FTE: float
     vvm: StandardisedFormat
+    vvm_uide: str
     raw: float
     wgh: float
 
@@ -50,3 +70,7 @@ class VIA(Node):
     name: str
     country: str
     via_type: str
+
+
+class MEETINGPOINT(Node):
+    type: NodeTypes = NodeTypes.MEETINGPOINT

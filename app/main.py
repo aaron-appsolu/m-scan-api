@@ -1,9 +1,14 @@
-from typing import List
+from datetime import datetime
+from typing import List, Any
 from fastapi import FastAPI
-from app.mongo import routeTypes, routes, ppl
+from pymongo import UpdateOne
+from pymongo.collection import Collection
+
+from app.mongo import routeTypes, routes, ppl, vvm_observed, vvm_formatted
 from app.neo import execute_query
 from fastapi.middleware.cors import CORSMiddleware
 from app.structure.nodes import PPL
+from app.structure.types import VVMFormatted, VVMObserved
 
 origins = [
     "https://m-scan-v2.made4it.com",
@@ -18,12 +23,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.get("/vpl")
-async def get_vpl():
-    result = execute_query('MATCH (vpl:VPL) RETURN vpl')
-    return [{**d.get('vpl')} for d in result]
 
 
 @app.get("/ppl")
@@ -49,17 +48,51 @@ async def get_vpl(vpl_uides: str):
                 'as': 'routes'
             }
         },
-        {'$project': {'_id': 0}}
+        {'$addFields': {'lat': "$lat_jitter", 'lng': "$lng_jitter"}},
+        {'$project': {'_id': 0, 'lat_jitter': 0, 'lng_jitter': 0}}
     ]
 
     # ppl.find({'vpl_uide': {'$in': vpl_uides}}, {'_id': 0})
     return [d for d in ppl.aggregate(pipeline)]
 
 
+@app.get("/vvm")
+async def get_vvm():
+    o = list(vvm_observed.find({}, {'_id': 0}))
+    f = list(vvm_formatted.find({}, {'_id': 0}))
+
+    return {
+        'obs': o,
+        'rpt': [d for d in f if d['type'] == 'rpt'],
+        'std': [d for d in f if d['type'] == 'std']
+    }
+
+
+@app.get("/vpl")
+async def get_vpl():
+    result = execute_query('MATCH (vpl:VPL) RETURN vpl')
+    return [{**d.get('vpl')} for d in result]
+
+
+def updater(col: Collection, changes: List[Any]):
+    timestamp = datetime.now()
+    operations = [UpdateOne({'uide': d.uide}, {'$set': {**d.model_dump(), 'lastEdited': timestamp}}) for d in changes]
+    col.bulk_write(operations)
+
+
 @app.post("/ppl/update")
 async def get_vpl(changes: List[PPL]):
-    raise NotImplementedError
-    return None
+    return updater(ppl, changes)
+
+
+@app.post("/vvm/update/formatted")
+async def get_vpl(changes: List[VVMFormatted]):
+    return updater(vvm_formatted, changes)
+
+
+@app.post("/vvm/update/observed")
+async def get_vpl(changes: List[VVMObserved]):
+    return updater(vvm_observed, changes)
 
 
 def flat_feat(res) -> List:
