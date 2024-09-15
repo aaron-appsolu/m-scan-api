@@ -4,6 +4,11 @@ from typing import Union, List
 from pydantic import BaseModel, ConfigDict
 
 
+class Colours(BaseModel):
+    nu: str
+    potential: str
+
+
 class Modals(str, Enum):
     WALK = 'WALK'
     TRANSIT = 'TRANSIT'
@@ -34,6 +39,7 @@ class VVMFormatted(VVMBase):
     is_bedrijfswagen: bool
     is_smart: bool
     traject: Union[Modals, None]
+    colour: Colours
 
 
 class Route(BaseModel):
