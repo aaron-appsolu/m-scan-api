@@ -43,19 +43,20 @@ class Beta(RouteEdge):
     type: Modals
 
 
-class DeltaPre(RouteEdge):
+class DeltaStart(RouteEdge):
     type_a: NodeTypes = NodeTypes.PPL
     type_b: NodeTypes = NodeTypes.MEETINGPOINT
     type: Modals = Modals.CAR
 
 
-class DeltaShared(RouteEdge):
+class DeltaOverlap(RouteEdge):
     type_a: NodeTypes = NodeTypes.MEETINGPOINT
     type_b: NodeTypes = NodeTypes.MEETINGPOINT
-    type: Modals = Modals.CAR
+    type: Modals = Modals.CARPOOL
+    phi: float
 
 
-class DeltaPost(RouteEdge):
+class DeltaEnd(RouteEdge):
     type_a: NodeTypes = NodeTypes.MEETINGPOINT
     type_b: NodeTypes = NodeTypes.VPL
     type: Modals = Modals.CAR

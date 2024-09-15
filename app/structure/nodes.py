@@ -1,9 +1,6 @@
 from enum import Enum
 from random import random
-
 from pydantic import BaseModel, ConfigDict, field_validator, computed_field
-
-from app.structure.types import StandardisedFormat
 
 
 def jitter(n: float):
@@ -45,7 +42,6 @@ class PPL(Node):
     owner: str
     address: str
     FTE: float
-    vvm: StandardisedFormat
     vvm_uide: str
     raw: float
     wgh: float

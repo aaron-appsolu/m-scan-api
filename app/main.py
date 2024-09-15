@@ -1,6 +1,7 @@
 from datetime import datetime
-from typing import List, Any
+from typing import List, Any, Dict
 from fastapi import FastAPI
+from pydantic import ConfigDict
 from pymongo import UpdateOne
 from pymongo.collection import Collection
 
@@ -8,7 +9,7 @@ from app.mongo import routeTypes, routes, ppl, vvm_observed, vvm_formatted
 from app.neo import execute_query
 from fastapi.middleware.cors import CORSMiddleware
 from app.structure.nodes import PPL
-from app.structure.types import VVMFormatted, VVMObserved
+from app.structure.types import VVMFormatted, VVMObserved, Route
 
 origins = [
     "https://m-scan-v2.made4it.com",
@@ -41,7 +42,9 @@ async def get_vpl(vpl_uides: str):
                         'total_duration': 1,
                         'route_type': 1,
                         'route_id': 1,
+                        'uide': 1,
                         'features_zlib': 1,
+                        'excluded_from': 1,
                         '_id': 0
                     }}
                 ],
@@ -85,6 +88,17 @@ async def get_vpl(changes: List[PPL]):
     return updater(ppl, changes)
 
 
+class DecodedPPL(PPL):
+    routes: List[Route]
+    model_config = ConfigDict(extra='ignore')
+
+
+@app.post("/route/update")
+async def get_vpl(changes: List[DecodedPPL]):
+    ppl_routes = [route for d in changes for route in d.routes]
+    return updater(routes, ppl_routes)
+
+
 @app.post("/vvm/update/formatted")
 async def get_vpl(changes: List[VVMFormatted]):
     return updater(vvm_formatted, changes)
@@ -95,34 +109,6 @@ async def get_vpl(changes: List[VVMObserved]):
     return updater(vvm_observed, changes)
 
 
-def flat_feat(res) -> List:
-    return [d2 for r in res for d2 in r.get('features')]
-
-
-@app.get("/routes/features/ppl/{ppl_uide}")
-async def get_ppl_all_routes(ppl_uide: str):
-    return flat_feat(routes.find({'ppl_uide': ppl_uide},
-                                 {'_id': 0, 'features': 1}))
-
-
-@app.get("/routes/features/ppl/{ppl_uide}/{route_type}")
-async def get_ppl_route(ppl_uide: str, route_type: str):
-    return flat_feat(routes.find({'ppl_uide': ppl_uide, 'route_type': route_type},
-                                 {'_id': 0, 'features': 1}))
-
-
-@app.get("/routes/features/vpl/{vpl_uide}")
-async def get_vpl_all_routes(vpl_uide: str):
-    return list(routes.find({'vpl_uide': vpl_uide},
-                            {'_id': 0, 'features_zlib': 1, 'route_type': 1, 'vpl_uide': 1, 'ppl_uide': 1}))
-
-
-@app.get("/routes/features/vpl/{vpl_uide}/{route_type}")
-async def get_vpl_route(vpl_uide: str, route_type: str):
-    return list(routes.find({'vpl_uide': vpl_uide, 'route_type': route_type},
-                            {'_id': 0, 'features_zlib': 1, 'route_type': 1, 'vpl_uide': 1, 'ppl_uide': 1}))
-
-
 @app.get("/route_types")
 async def get_route_types():
-    return [d for d in routeTypes.find({}, {'_id': 0})]
+    return [d for d in routeTypes.find({'active': True}, {'_id': 0})]
