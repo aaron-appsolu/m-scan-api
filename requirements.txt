@@ -6,4 +6,3 @@ polyline==2.0.2
 python-dotenv==1.0.1
 numba==0.60.0
 pydantic-settings==2.1.0
-zlib==1.2.13
