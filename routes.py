@@ -4,11 +4,8 @@ import zlib
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import List
-
-from bson import ObjectId
+from uuid import uuid4
 from neo4j import Record
-from app.helpers.google import decode
-from geojson import Feature, LineString, Point
 from neo4j.graph import Node as NeoNode, Relationship as NeoEdge
 from pymongo import UpdateOne
 
@@ -25,8 +22,8 @@ def edge(idx: int, t: str):
     return f'-[v{idx}:{t}]->'
 
 
-rt = [d for d in routeTypes.find({'active': True})]
-ppls = [d for d in ppl.find({'_id': {'$gte': ObjectId('66bd0bddf73c0fca6ae43491')}}, {'uide': 1, 'vpl_uide': 1})]
+rt = [d for d in routeTypes.find({'active': True, 'id': 'carpool'})]
+ppls = [d for d in ppl.find({}, {'uide': 1, 'vpl_uide': 1})]
 
 
 def handle_ppl(ppl_idx: int, p: PPL):
@@ -52,15 +49,17 @@ def handle_ppl(ppl_idx: int, p: PPL):
             total_distance = 0
             ppl_uide = res.values()[0].get('uide')
             vpl_uide = res.values()[-1].get('uide')
+            uide = uuid4().hex
 
-            for r in res:
+            for r in res[1:-1]:
                 if isinstance(r, NeoNode):
                     features.append({
                         'props': {
                             'type': r.get('type')
                         },
                         'encoded': r.get('point'),
-                        'type': 'P'
+                        'type': 'P',
+                        'id': uide
                     })
                 if isinstance(r, NeoEdge):
                     total_duration += r.get('duration') or 0
@@ -73,7 +72,8 @@ def handle_ppl(ppl_idx: int, p: PPL):
                             'type': r.get('type')
                         },
                         'encoded': r.get('polyline'),
-                        'type': 'L'
+                        'type': 'L',
+                        'id': uide
                     })
 
             compressed_bytes: bytes = zlib.compress(json.dumps(features).encode('utf-8'))
@@ -88,13 +88,15 @@ def handle_ppl(ppl_idx: int, p: PPL):
                 '$set': {
                     'features_zlib': base64_encoded_data,
                     'route_id': route_type.get('id'),
+                    'uide': uide,
                     'lastEdited': datetime.now(),
                     'total_duration': total_duration,
                     'total_distance': total_distance
                 },
                 '$setOnInsert': {
                     **upsert,
-                    'created': datetime.now()
+                    'created': datetime.now(),
+                    'excluded_from': []
                 }
             }
             operations.append(UpdateOne(upsert, doc, upsert=True))
@@ -106,9 +108,8 @@ def handle_ppl(ppl_idx: int, p: PPL):
         print(f"{ppl_idx + 1}/{len(ppls)}: no routes")
 
 
-#
-# for ppl_idx, p in enumerate(ppls):
-#     handle_ppl(ppl_idx, p)
+# for pidx, p in enumerate(ppls):
+#     handle_ppl(pidx, p)
 
 
 with ThreadPoolExecutor(max_workers=75) as executor:

@@ -30,7 +30,7 @@ class VVMBase(BaseModel):
 
 
 class VVMObserved(VVMBase):
-    type: VVMTypes = 'obs'
+    type: VVMTypes = VVMTypes.obs
     std_uide: Union[str, None]
     rpt_uide: Union[str, None]
 
@@ -39,6 +39,7 @@ class VVMFormatted(VVMBase):
     is_bedrijfswagen: bool
     is_smart: bool
     traject: Union[Modals, None]
+    icon_uide: Union[str, None]
     colour: Colours
 
 
