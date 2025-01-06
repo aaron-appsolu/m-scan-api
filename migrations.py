@@ -1,6 +1,5 @@
-import json
 from datetime import datetime
-from time import sleep, time
+from time import sleep
 from typing import Dict, List
 import requests
 
@@ -9,15 +8,17 @@ from pymongo import UpdateOne
 from app.neo import execute_query
 from app.mongo import vpl_old, ppl_old, vvm_old, vvm_observed, vvm_formatted, gamma, delta, via_old, alfa, beta, ppl, \
     clr, ico, icons
-from app.structure.nodes import PPL, VPL, VIA, MEETINGPOINT, NodeTypes, Node
+from app.structure.nodes import PPL, VPL, VIA, MEETINGPOINT, NodeTypes
 from app.structure.graph_types import create_edges, create_nodes_neo, create_nodes_mongo
 from app.structure.edges import PplVplOwnership, Gamma, Beta, Alfa, DeltaStart, DeltaOverlap, DeltaEnd, Edge
 
 from polyline import encode
 from app.structure.types import VVMObserved, VVMFormatted, Modals
-from helpers import checksum, md5, chunks
+from helpers import md5
 
-vpl_query = {'vpl_acl': 'PMA'}
+OWNER = 'JBW'
+
+vpl_query = {'vpl_acl': OWNER}
 vpl_uides = [d['vpl_uide'] for d in vpl_old.find(vpl_query, {'vpl_uide': 1})]
 
 CURRENTLY_SMART = [
@@ -74,6 +75,10 @@ def delete_all():
     execute_query('MATCH (n) DELETE n')
 
 
+def get_used_vvm_uides():
+    return list(set(d.get('vvm_uide') for d in ppl.find({'owner': OWNER}, {'vvm_uide': 1, '_id': 0})))
+
+
 def create_ppl_nodes():
     proj = {
         '_id': 0,
@@ -84,32 +89,34 @@ def create_ppl_nodes():
         'raw': '$ppl.raw',
         'wgh': '$ppl.wgh',
         'FTE': '$ppl_FTE',
-        'vvm': {'std': '$vvm.vvm_1_std', 'rpt': '$vvm.vvm_1_rpt', 'obs': '$vvm.vvm_1_obs'},
+        'vvm_uide': '$vvm.vvm_1_uide',
         'formattedAddress': '$goc.formattedAddress'
     }
 
-    ppls = [d for d in ppl_old.find({'vpl_uide': {'$in': vpl_uides}}, proj)]
-    n = [Node(
-        type=NodeTypes.PPL,
-        uide=d['ppl_uide'],
-        lng=d['pplLngLat']['coordinates'][0],
-        lat=d['pplLngLat']['coordinates'][1],
-    ) for d in ppls]
+    ppls = list(ppl_old.find({'vpl_uide': {'$in': vpl_uides}}, proj))
+
+    # n = [Node(
+    #     type=NodeTypes.PPL,
+    #     uide=d['ppl_uide'],
+    #     lng=d['pplLngLat']['coordinates'][0],
+    #     lat=d['pplLngLat']['coordinates'][1],
+    #     owner=PPL_OWNER
+    # ) for d in ppls]
 
     p = [PPL(
         uide=d['ppl_uide'],
         vpl_uide=d['vpl_uide'],
         lng=d['pplLngLat']['coordinates'][0],
         lat=d['pplLngLat']['coordinates'][1],
-        owner=d['ppl_owner'],
+        owner=OWNER,
         raw=d['raw'],
         wgh=d['wgh'],
         FTE=d['FTE'],
-        vvm_uide=checksum(d['vvm']['obs']),
+        vvm_uide=d['vvm_uide'],
         address=d['formattedAddress']
     ) for d in ppls]
-
-    create_nodes_neo(nodes=n)
+    # TODO: double (and extra) data in neo4j
+    create_nodes_neo(nodes=p)
     create_nodes_mongo(nodes=p, collection=ppl)
 
 
@@ -126,7 +133,8 @@ def create_vpl_nodes():
         uide=d['vpl_uide'],
         lng=d['vplLngLat']['coordinates'][0],
         lat=d['vplLngLat']['coordinates'][1],
-        name=d['vpl_name']
+        name=d['vpl_name'],
+        owner=OWNER
     ) for d in vpl_old.find({'vpl_uide': {'$in': vpl_uides}}, proj)]
 
     create_nodes_neo(nodes=vpls)
@@ -168,14 +176,36 @@ def create_via_nodes():
 
 
 def create_vvm():
-    res = list(vvm_old.find({'vvm_owner': vpl_query['vpl_acl']}, {
+    default_colours = {'potential': '#000000', 'nu': '#000000'}
+    # colour_translations = {
+    #     'blue': '#0000ff',
+    #     'cyan': '#00ffff',
+    #     'red': '#ff0000',
+    #     'gray59': '#595959'
+    # }
+    #
+    # colours = {}
+    #
+    # for idx, clrs in enumerate(clr.find({PPL_OWNER: {'$exists': 1}})):
+    #     colour = clrs[PPL_OWNER]
+    #     clr_uide = clrs['clr_uide']
+    #     key = 'potential' if clrs['potential'] == 1 else 'nu'
+    #     if clr_uide not in colours:
+    #         colours[clr_uide] = default_colours
+    #     colours[clr_uide][key] = colour_translations.get(colour, colour)
+
+    proj = {
+        '_id': 0,
         'obs': '$vvm_obs',
         'rpt': '$vvm_rpt',
         'std': '$vvm_std',
         'bw': '$vvm_bw',
         'uide': '$vvm_uide',
-        'traject': '$vvm_traject',
-    }))
+        'traject': {'$ifNull': ['$vvm_traject', '$M4T_traject', None]},
+    }
+    aa = get_used_vvm_uides()
+    res = list(vvm_old.find({'vvm_uide': {'$in': aa}}, proj))
+
     translate_traject: Dict[str, Modals] = {
         'Fiets': Modals.BICYCLE,
         'Auto': Modals.CAR,
@@ -185,17 +215,22 @@ def create_vvm():
         uide=d['uide'],
         value=d['obs'],
         std_uide=md5(d['std']),
-        rpt_uide=md5(d['rpt'])
+        rpt_uide=md5(d['rpt']),
+        owner=OWNER
     ) for d in res]
 
+    timestamp = datetime.now().isoformat(sep='T')
     vvms_std = [VVMFormatted(
         uide=md5(d['std']),
         value=d['std'],
         type='std',
         icon_uide=None,
-        is_bedrijfswagen=d['bw'] == 1,
+        is_bedrijfswagen=d.get('bw') == 1,
         is_smart=d['std'] in CURRENTLY_SMART,
-        traject=translate_traject.get(d['traject']),
+        traject=translate_traject.get(d.get('traject')),
+        owner=OWNER,
+        lastEdited=timestamp,
+        colour=default_colours
     ) for d in res]
 
     vvms_rpt = [VVMFormatted(
@@ -203,20 +238,20 @@ def create_vvm():
         value=d['rpt'],
         type='rpt',
         icon_uide=None,
-        is_bedrijfswagen=d['bw'] == 1,
+        is_bedrijfswagen=d.get('bw') == 1,
         is_smart=d['rpt'] in CURRENTLY_SMART,
         traject=translate_traject.get(d['traject']),
+        owner=OWNER,
+        lastEdited=timestamp,
+        colour=default_colours
     ) for d in res]
 
-    timestamp = datetime.now()
-    operations_1 = [UpdateOne({'uide': d.uide, 'type': d.type}, {
-        '$setOnInsert': {'created': timestamp},
-        '$set': {**d.model_dump(), 'lastEdited': timestamp}
+    operations_1 = [UpdateOne({'uide': d.uide, 'type': d.type, 'owner': OWNER}, {
+        '$set': d.model_dump()
     }, upsert=True) for d in vvms_obs]
 
-    operations_2 = [UpdateOne({'uide': d.uide, 'type': d.type}, {
-        '$setOnInsert': {'created': timestamp},
-        '$set': {**d.model_dump(), 'lastEdited': timestamp}
+    operations_2 = [UpdateOne({'uide': d.uide, 'type': d.type, 'owner': OWNER}, {
+        '$set': d.model_dump()
     }, upsert=True) for d in vvms_std + vvms_rpt]
 
     vvm_observed.bulk_write(operations_1)
@@ -294,7 +329,8 @@ def create_alfa_edges():
         'via_lng': 1
     }
 
-    alfas = list(alfa.find({'ppl_LngLat': {'$exists': 1}, 'via_LngLat': {'$exists': 1}}, proj))
+    alfas = list(
+        alfa.find({'ppl_LngLat': {'$exists': 1}, 'via_LngLat': {'$exists': 1}, 'vpl_uide': {'$in': vpl_uides}}, proj))
 
     def polyline(d: dict):
         return encode([(d['ppl_lat'], d['ppl_lng']), (d['via_lat'], d['via_lng'])])
@@ -498,8 +534,8 @@ def create_delta():
         #     type=Modals.CAR,
         #     polyline=res['overlap_polyline_2'],
         #     distance=res['overlap_2'],
-        #     duration=res['overlap_2'] * 16.666  # 60 kmh => 16.666 m/s
-        # ))
+        #     duration=res['overlap_2'] * 16.666 # 60 kmh → 16.666 m/s
+        #  ))
         #
         # end_segment.append(DeltaEnd(
         #     uide_a=m_b_uide,
@@ -507,7 +543,7 @@ def create_delta():
         #     type=Modals.CAR,
         #     polyline=res['end_polyline_2'],
         #     distance=res['end_2'],
-        #     duration=res['end_2'] * 16.666  # 60 kmh => 16.666 m/s
+        #     duration=res['end_2'] * 16.666 # 60 kmh → 16.666 m/s
         # ))
         print(f"Calculated: {idx + 1}/{l_deltas}")
 
@@ -559,26 +595,33 @@ def fix_clr():
 
 
 def create_icons():
-    icos = ico.find({'PMA': {'$exists': 1, '$ne': None}},
-                    {'url': {'$concat': ['https://m-scan.made4it.com/_icons/', '$PMA']},
-                     'path': '$PMA',
-                     'ico_name': 1,
-                     'potential': 1,
-                     'uide': '$ico_uide'})
+    for idx, v in enumerate(vvm_formatted.find({})):
+        icos = list(ico.find({'ico_uide': v['uide']},
+                             {'path': {'$ifNull': [f'${OWNER}', '$M4T']},
+                              'ico_name': 1,
+                              'potential': 1}))
 
-    for idx, d in enumerate(icos):
-        svg = requests.get(d['url']).text
-        name = d['ico_name'].replace('/', '_').replace(' ', '')
-        path = f"assets/icons/{name}_{'nu' if d['potential'] == 0 else 'potential'}.svg"
-        with open(f"./{path}", 'w') as file:
-            file.write(svg)
+        icon_uide = v['uide'] if len(icos) > 0 else None
+        vvm_formatted.update_one({'_id': v['_id']}, {'$set': {'icon_uide': icon_uide}})
 
-        icons.update_one({'uide': d['uide']}, {'$set': {
-            'uide': d['uide'],
-            'name': d['ico_name'],
-            'path.nu' if d['potential'] == 0 else 'path.potential': path
-        }}, upsert=True)
+        for d in icos:
+            url = 'https://m-scan.made4it.com/_icons/' + d['path']
+            svg = requests.get(url).text
+            name = d['ico_name'].replace('/', '_').replace(' ', '')
+            path = f"assets/icons/{OWNER}/{name}_{'nu' if d['potential'] == 0 else 'potential'}.svg"
+            # Make sure owner path exists in icons
+            with open(f"./{path}", 'w') as file:
+                file.write(svg)
+
+            icons.update_one({'uide': icon_uide, 'owner': OWNER}, {'$set': {
+                'owner': OWNER,
+                'uide': icon_uide,
+                'name': d['ico_name'],
+                'path.nu' if d['potential'] == 0 else 'path.potential': path
+            }}, upsert=True)
+
         print(idx)
+    print('Move icon folder to frontend...')
 
 
 # create_node_indexes()
@@ -596,7 +639,7 @@ def create_icons():
 # create_alfa_edges()
 # create_beta_edges()
 # create_delta()
-# fix_clr()
-create_icons()
+# create_icons()
+fix_clr()
 
 print('Done')

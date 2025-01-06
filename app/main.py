@@ -1,15 +1,11 @@
-from datetime import datetime
-from typing import List, Any, Dict, Mapping, Sequence
-from fastapi import FastAPI
-from pydantic import ConfigDict
-from pymongo import UpdateOne
-from pymongo.collection import Collection
-
-from app.mongo import routeTypes, routes, ppl, vvm_observed, vvm_formatted, icons
-from app.neo import execute_query
+from bson import ObjectId
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from app.structure.nodes import PPL
-from app.structure.types import VVMFormatted, VVMObserved, Route
+from app.mongo import users
+from app.routers import main
+from app.settings import settings
+import jwt
 
 origins = [
     "https://m-scan-v2.made4it.com",
@@ -28,95 +24,45 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/ppl")
-async def get_vpl(vpl_uides: str):
-    uides = vpl_uides.split(',')
-    pipeline = [
-        {'$match': {'vpl_uide': {'$in': uides}}},
-        {
-            '$lookup': {
-                'from': 'routes',
-                'let': {'uide': '$uide'},
-                'pipeline': [
-                    {'$match': {'$expr': {'$eq': ['$ppl_uide', '$$uide']}}},
-                    {'$project': {
-                        'total_distance': 1,
-                        'total_duration': 1,
-                        'route_type': 1,
-                        'route_id': 1,
-                        'uide': 1,
-                        'features_zlib': 1,
-                        'excluded_from': 1,
-                        '_id': 0
-                    }}
-                ],
-                'as': 'routes'
-            }
-        },
-        {'$addFields': {'lat': "$lat_jitter", 'lng': "$lng_jitter"}},
-        {'$project': {'_id': 0, 'lat_jitter': 0, 'lng_jitter': 0}}
-    ]
-
-    # ppl.find({'vpl_uide': {'$in': vpl_uides}}, {'_id': 0})
-    return [d for d in ppl.aggregate(pipeline)]
+app.include_router(main.router)
 
 
-@app.get("/vvm")
-async def get_vvm():
-    o = list(vvm_observed.find({}, {'_id': 0}))
-    f = list(vvm_formatted.find({}, {'_id': 0}))
+@app.middleware("http")
+async def access(request: Request, call_next):
+    if request.method == 'OPTIONS':
+        return await call_next(request)
 
-    return {
-        'obs': o,
-        'rpt': [d for d in f if d['type'] == 'rpt'],
-        'std': [d for d in f if d['type'] == 'std']
-    }
+    jwt_options = {'verify_signature': True}
+    authorization = request.headers.get('Authorization')
 
+    if not authorization:
+        return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={'reason': 'No Authorization Token'})
 
-@app.get("/vpl")
-async def get_vpl():
-    result = execute_query('MATCH (vpl:VPL) RETURN vpl')
-    return [{**d.get('vpl')} for d in result]
+    token = authorization.split(' ')[1]
+    jwt_payload = jwt.decode(token,
+                             options=jwt_options,
+                             verify=True,
+                             key=settings.SECRET,
+                             algorithms=["HS256"])
+    user = users.find_one({'_id': ObjectId(jwt_payload['_id'])})
 
+    if not user:
+        return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={'reason': 'No User'})
 
-def updater(col: Collection, changes: List[Any]):
-    timestamp = datetime.now()
-    operations = [UpdateOne({'uide': d.uide}, {'$set': {**d.model_dump(), 'lastEdited': timestamp}}) for d in changes]
-    col.bulk_write(operations)
+    application = 'mscan'
+    requested_application = request.query_params.get('application')
+    owner = request.query_params.get('owner')
 
+    if ((application not in user['applications'])
+            or (application not in user)
+            or (requested_application != application)):
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={'reason': 'No access to application'})
 
-@app.post("/ppl/update")
-async def update_ppl(changes: List[PPL]):
-    return updater(ppl, changes)
+    application_data = user[application]
 
+    if owner and owner not in application_data.get('owner', []):
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN,
+                            content={'reason': 'No ownership of the requested data'})
 
-class DecodedPPL(PPL):
-    routes: List[Route]
-    model_config = ConfigDict(extra='ignore')
-
-
-@app.post("/route/update")
-async def update_route(changes: List[DecodedPPL]):
-    ppl_routes = [route for d in changes for route in d.routes]
-    return updater(routes, ppl_routes)
-
-
-@app.post("/vvm/update/formatted")
-async def update_vvm_formatted(changes: List[VVMFormatted]):
-    return updater(vvm_formatted, changes)
-
-
-@app.post("/vvm/update/observed")
-async def update_vvm_observed(changes: List[VVMObserved]):
-    return updater(vvm_observed, changes)
-
-
-@app.get("/route_types")
-async def get_route_types():
-    return [d for d in routeTypes.find({'active': True}, {'_id': 0})]
-
-
-@app.get("/icons")
-async def get_icons():
-    return [d for d in icons.find({}, {'_id': 0})]
+    request.state.user_data = application_data
+    return await call_next(request)

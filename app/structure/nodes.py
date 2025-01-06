@@ -1,5 +1,7 @@
 from enum import Enum
 from random import random
+from typing import Union
+
 from pydantic import BaseModel, ConfigDict, field_validator, computed_field
 
 
@@ -40,7 +42,7 @@ class PPL(Node):
     type: NodeTypes = NodeTypes.PPL
     vpl_uide: str
     owner: str
-    address: str
+    address: Union[str, None]
     FTE: float
     vvm_uide: str
     raw: float
@@ -59,6 +61,7 @@ class PPL(Node):
 class VPL(Node):
     type: NodeTypes = NodeTypes.VPL
     name: str
+    owner: str
 
 
 class VIA(Node):

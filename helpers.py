@@ -37,4 +37,6 @@ def checksum(obj):
 
 
 def md5(s):
+    if s is None:
+        return None
     return md5_hashlib(s.encode()).hexdigest()

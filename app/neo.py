@@ -1,7 +1,6 @@
 from neo4j import GraphDatabase
-from app.settings import get_settings
+from app.settings import settings
 
-settings = get_settings()
 
 URI = settings.NEO4J
 AUTH = tuple(settings.GRAPHAUTH.split('/'))

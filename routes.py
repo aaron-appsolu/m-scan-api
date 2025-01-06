@@ -22,12 +22,13 @@ def edge(idx: int, t: str):
     return f'-[v{idx}:{t}]->'
 
 
-rt = [d for d in routeTypes.find({'active': True, 'id': 'carpool'})]
-ppls = [d for d in ppl.find({}, {'uide': 1, 'vpl_uide': 1})]
+rt = [d for d in routeTypes.find({'active': True})]
+ppls = [d for d in ppl.find({'owner': 'JBW'}, {'uide': 1, 'vpl_uide': 1})]
 
 
 def handle_ppl(ppl_idx: int, p: PPL):
     ppl_uide = p.get('uide')
+    ppl_owner = p.get('owner')
     vpl_uide = p.get('vpl_uide')
     operations = []
     for route_type in rt:
@@ -45,8 +46,8 @@ def handle_ppl(ppl_idx: int, p: PPL):
 
         for res in result:
             features = []
-            total_duration = 0
-            total_distance = 0
+            total_duration = sum(r.get('duration') or 0 for r in res)
+            total_distance = sum(r.get('distance') or 0 for r in res)
             ppl_uide = res.values()[0].get('uide')
             vpl_uide = res.values()[-1].get('uide')
             uide = uuid4().hex
@@ -62,13 +63,12 @@ def handle_ppl(ppl_idx: int, p: PPL):
                         'id': uide
                     })
                 if isinstance(r, NeoEdge):
-                    total_duration += r.get('duration') or 0
-                    total_distance += r.get('distance') or 0
-
                     features.append({
                         'props': {
                             'duration': r.get('duration'),
                             'distance': r.get('distance'),
+                            'duration_phi': r.get('duration') / total_duration,
+                            'distance_phi': r.get('distance') / total_distance,
                             'type': r.get('type')
                         },
                         'encoded': r.get('polyline'),
@@ -112,7 +112,7 @@ def handle_ppl(ppl_idx: int, p: PPL):
 #     handle_ppl(pidx, p)
 
 
-with ThreadPoolExecutor(max_workers=75) as executor:
+with ThreadPoolExecutor(max_workers=4*16) as executor:
     # Submit tasks to the thread pool
     futures = [executor.submit(handle_ppl, ppl_idx, p) for ppl_idx, p in enumerate(ppls)]
 

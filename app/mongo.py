@@ -1,8 +1,10 @@
 from pymongo import MongoClient
-from app.settings import get_settings
+from app.settings import settings
 
-settings = get_settings()
 client: MongoClient = MongoClient(settings.MONGODB)
+
+users = client.auth.users
+roles = client.auth.roles
 
 vpl_old = client.m_scan.vpl
 ppl_old = client.m_scan.ppl
@@ -21,3 +23,7 @@ ppl = client.m_traject.ppl
 vvm_formatted = client.m_traject.vvmFormatted
 vvm_observed = client.m_traject.vvmObserved
 icons = client.m_traject.icons
+rekenregels = client.m_traject.rekenregels
+languages = client.m_traject.languages
+translation_fields = client.m_traject.translationFields
+owners = client.m_traject.owners

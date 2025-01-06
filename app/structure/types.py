@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Union, List
+from typing import Union, List, Dict
 
 from pydantic import BaseModel, ConfigDict
 
@@ -27,6 +27,7 @@ class VVMBase(BaseModel):
     type: VVMTypes
     uide: str
     value: str
+    owner: str
 
 
 class VVMObserved(VVMBase):
@@ -41,6 +42,7 @@ class VVMFormatted(VVMBase):
     traject: Union[Modals, None]
     icon_uide: Union[str, None]
     colour: Colours
+    lastEdited: str
 
 
 class Route(BaseModel):
@@ -53,3 +55,8 @@ class Route(BaseModel):
     uide: str
 
     model_config = ConfigDict(extra='ignore')
+
+
+class Language(BaseModel):
+    uide: str
+    translations: Dict[str, str]

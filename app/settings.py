@@ -20,3 +20,6 @@ class Settings(BaseSettings):
     MONGODB: str
     NEO4J: str
     GRAPHAUTH: str
+
+
+settings = get_settings()
