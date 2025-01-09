@@ -1,10 +1,11 @@
 from datetime import datetime
 from typing import List, Any
-
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 from pydantic import ConfigDict
-from pymongo import UpdateOne
+from pymongo import UpdateOne, DeleteOne
 from pymongo.collection import Collection
+from starlette import status
 
 from app.mongo import routeTypes, routes, ppl, vvm_observed, vvm_formatted, icons, rekenregels, languages, owners, \
     translation_fields
@@ -85,15 +86,16 @@ async def get_vpl(owner: str):
     return [{**d.get('vpl')} for d in result]
 
 
-def updater(col: Collection, changes: List[Any]):
+def updater(col: Collection, changes: List[Any], keys: List[str]):
     timestamp = datetime.now()
-    operations = [UpdateOne({'uide': d.uide}, {'$set': {**d.model_dump(), 'lastEdited': timestamp}}) for d in changes]
+    operations = [UpdateOne({k: getattr(d, k) for k in keys}, {'$set': {**d.model_dump(), 'lastEdited': timestamp}})
+                  for d in changes]
     col.bulk_write(operations)
 
 
 @router.post("/ppl/update")
 async def update_ppl(changes: List[PPL]):
-    return updater(ppl, changes)
+    return updater(ppl, changes, ['uide'])
 
 
 class DecodedPPL(PPL):
@@ -104,22 +106,39 @@ class DecodedPPL(PPL):
 @router.post("/route/update")
 async def update_route(changes: List[DecodedPPL]):
     ppl_routes = [route for d in changes for route in d.routes]
-    return updater(routes, ppl_routes)
+    return updater(routes, ppl_routes, ['uide'])
 
 
 @router.post("/vvm/update/formatted")
 async def update_vvm_formatted(changes: List[VVMFormatted]):
-    return updater(vvm_formatted, changes)
+    return updater(vvm_formatted, changes, ['uide', 'owner', 'type'])
+
+
+@router.post("/vvm/combine/formatted")
+async def combine_vvm_formatted(changes: List[VVMFormatted], owner: str):
+    main_qry = {'owner': owner, 'type': 'std'}
+    ref_vvm, *rem_vvm = changes
+    count = rekenregels.count_documents(
+        {'smartVvm.std': {'$in': [d.uide for d in rem_vvm]}, **main_qry})
+
+    if count > 0:
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT,
+                            content={'reason': 'Data is used in rekenregel'})
+
+    ops = [UpdateOne({'std_uide': d.uide, **main_qry}, {'$set': {'std_uide': ref_vvm.uide}}) for d in rem_vvm]
+    vvm_observed.bulk_write(ops)
+    vvm_formatted.delete_many({'uide': {'$in': [d.uide for d in rem_vvm]}, **main_qry})
+    return list(vvm_formatted.find(main_qry, {'_id': 0}))
 
 
 @router.post("/vvm/update/observed")
 async def update_vvm_observed(changes: List[VVMObserved]):
-    return updater(vvm_observed, changes)
+    return updater(vvm_observed, changes, ['uide', 'owner', 'type'])
 
 
 @router.post("/language/update")
 async def update_ppl(changes: List[Language]):
-    return updater(languages, changes)
+    return updater(languages, changes, ['uide'])
 
 
 @router.get("/route_types")
